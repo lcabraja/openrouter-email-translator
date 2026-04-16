@@ -7,7 +7,7 @@ import { OpenRouterClient, type TranslationUsage } from "./openrouter";
 import { collectHtmlSegments, prepareHtmlForTranslation, renderTranslatedHtml, textToHtml } from "./translation";
 
 const AUTO_TRANSLATED_HEADER = "x-auto-translated-by";
-const AUTO_TRANSLATED_MARKER = "email-translate";
+const AUTO_TRANSLATED_MARKER = "openrouter-email-translator";
 
 export type UsageTotals = TranslationUsage;
 

@@ -1,4 +1,4 @@
-# 2026-04-16-email-translate
+# OpenRouter Email Translator
 
 A terminal-only Bun worker that:
 
