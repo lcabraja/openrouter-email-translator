@@ -47,6 +47,7 @@ export type AppConfig = {
   inboxPath: string;
   reconnectDelayMs: number;
   maxIdleTimeMs: number;
+  syncIntervalMs: number;
   appTitle: string;
 };
 
@@ -78,6 +79,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     inboxPath: "INBOX",
     reconnectDelayMs: 60_000,
     maxIdleTimeMs: 29 * 60_000,
+    syncIntervalMs: 2_000,
     appTitle: "email-translate",
   };
 }

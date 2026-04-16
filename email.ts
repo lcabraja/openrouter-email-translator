@@ -23,6 +23,7 @@ export class EmailTranslationService {
   };
   private syncInFlight = false;
   private syncQueued = false;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private readonly config: AppConfig) {
     this.translator = new OpenRouterClient(
@@ -73,6 +74,10 @@ export class EmailTranslationService {
       this.queueSync(client);
     });
 
+    this.pollTimer = setInterval(() => {
+      this.queueSync(client);
+    }, this.config.syncIntervalMs);
+
     const startupUnreadCount = await withMailboxLock(client, this.config.inboxPath, async () => {
       const searchResult = await client.search({ seen: false }, { uid: true });
       return Array.isArray(searchResult) ? searchResult.length : 0;
@@ -81,7 +86,11 @@ export class EmailTranslationService {
     console.log(`unread on startup: ${startupUnreadCount}`);
     this.queueSync(client);
 
-    await waitForClientShutdown(client);
+    try {
+      await waitForClientShutdown(client);
+    } finally {
+      this.stopPolling();
+    }
   }
 
   private queueSync(client: ImapFlow): void {
@@ -104,11 +113,19 @@ export class EmailTranslationService {
       console.error(error instanceof Error ? error.message : error);
 
       try {
+        this.stopPolling();
         await client.logout();
       } catch {
         // ignore logout failures during reconnect
       }
     });
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   private async syncUnreadMessages(client: ImapFlow): Promise<void> {
@@ -180,8 +197,7 @@ export class EmailTranslationService {
     }
 
     const references = normalizeReferences(original.references, original.messageId);
-    const translatedSubject = translation.translatedSubject?.trim();
-    const subjectBase = translatedSubject || original.subject || "Translated email";
+    const subject = buildThreadSubject(original.subject, translation.translatedSubject);
     const fromDisplayName = original.from?.text ? `Translated: ${original.from.text}` : "Translated email";
 
     const mailOptions: SendMailOptions = {
@@ -190,7 +206,7 @@ export class EmailTranslationService {
         address: this.config.smtp.user,
       },
       to: recipientAddresses.join(", "),
-      subject: `[Translated to ${translation.targetLanguage}] ${subjectBase}`,
+      subject,
       text: translation.translatedText ?? original.text ?? "",
       html: translation.translatedHtml,
       attachments: original.attachments.map((attachment) => mapAttachment(attachment)),
@@ -444,6 +460,19 @@ function normalizeReferences(
   }
 
   return Array.from(values);
+}
+
+function buildThreadSubject(
+  originalSubject: string | undefined,
+  translatedSubject: string | null,
+): string {
+  const baseSubject = originalSubject?.trim() || translatedSubject?.trim() || "Translated email";
+
+  if (/^re\s*:/i.test(baseSubject)) {
+    return baseSubject;
+  }
+
+  return `Re: ${baseSubject}`;
 }
 
 function mapAttachment(attachment: Attachment): NonNullable<SendMailOptions["attachments"]>[number] {
