@@ -1,12 +1,11 @@
 # 2026-04-16-email-translate
 
-Terminal-only Bun worker that:
+A terminal-only Bun worker that:
 
-- listens to `INBOX` over IMAP `IDLE`
-- detects each incoming email
+- watches `INBOX` over IMAP
 - translates it with OpenRouter
-- sends a translated copy back through SMTP
-- preserves reply threading, reply-to routing, and original HTML structure as closely as possible
+- replies through SMTP
+- preserves threading headers, reply routing, attachments, and the original HTML structure as closely as possible
 
 ## Install
 
@@ -24,9 +23,19 @@ Copy `.env.example` and fill in your values.
 bun run start
 ```
 
-## Notes
+## Behavior
 
 - If no `+language` suffix is found in recipient addressing, translation defaults to English.
 - Example: `translate+croatian@example.com`
-- The service uses IMAP `IDLE` instead of 1-second polling.
-- Original inbound emails are marked `\Seen` after a successful translated send to avoid duplicate retranslations on restart.
+- New mail is picked up via IMAP `IDLE` with a short fallback sync loop.
+- Replies are sent to the original `Reply-To`, or `From` if `Reply-To` is missing.
+- Original inbound emails are marked `\Seen` only after a successful translate-and-send flow.
+
+## Output
+
+Normal terminal output is intentionally minimal:
+
+- `unread on startup: N`
+- `processed from Name <email@example.com>, tokens=123`
+
+Failures are printed as errors.
