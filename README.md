@@ -1,15 +1,32 @@
 # 2026-04-16-email-translate
 
-To install dependencies:
+Terminal-only Bun worker that:
+
+- listens to `INBOX` over IMAP `IDLE`
+- detects each incoming email
+- translates it with OpenRouter
+- sends a translated copy back through SMTP
+- preserves reply threading, reply-to routing, and original HTML structure as closely as possible
+
+## Install
 
 ```bash
 bun install
 ```
 
-To run:
+## Environment
+
+Copy `.env.example` and fill in your values.
+
+## Run
 
 ```bash
-bun run index.ts
+bun run start
 ```
 
-This project was created using `bun init` in bun v1.3.3. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Notes
+
+- If no `+language` suffix is found in recipient addressing, translation defaults to English.
+- Example: `translate+croatian@example.com`
+- The service uses IMAP `IDLE` instead of 1-second polling.
+- Original inbound emails are marked `\Seen` after a successful translated send to avoid duplicate retranslations on restart.
