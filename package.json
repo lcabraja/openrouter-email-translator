@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
+    "once": "bun run src/once.ts",
     "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {

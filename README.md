@@ -33,9 +33,12 @@ bun run start
 
 ## Output
 
-Normal terminal output is intentionally minimal:
+The worker logs each processing stage without printing message bodies or credentials:
 
-- `unread on startup: N`
-- `processed from Name <email@example.com>, tokens=123`
-
-Failures are printed as errors.
+- mail and sender detected
+- whether a `+language` translation was specified, and the selected target language
+- whether `Reply-To` was specified, and the resulting delivery address
+- translation submission, model, duration, detected language, and token usage
+- SMTP submission and final delivery route (`reply-to` or `from`)
+- skipped-message reasons
+- failures with the message UID and failing stage
