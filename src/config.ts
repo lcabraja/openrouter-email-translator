@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 const requiredString = z.string().trim().min(1);
+const providerList = requiredString
+  .transform((value) => value.split(",").map((provider) => provider.trim()).filter(Boolean))
+  .pipe(z.array(requiredString).min(1));
 
 const envSchema = z.object({
   IMAP_USERNAME: requiredString,
@@ -13,6 +16,7 @@ const envSchema = z.object({
   SMTP_PORT: requiredString,
   OPENROUTER_API_KEY: requiredString,
   OPENROUTER_MODEL_IDENTIFIER: requiredString,
+  OPENROUTER_PROVIDER: providerList,
 });
 
 function parsePort(value: string, label: string): number {
@@ -43,6 +47,7 @@ export type AppConfig = {
   openRouter: {
     apiKey: string;
     model: string;
+    providers: string[];
   };
   inboxPath: string;
   reconnectDelayMs: number;
@@ -75,6 +80,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     openRouter: {
       apiKey: parsedEnv.OPENROUTER_API_KEY,
       model: parsedEnv.OPENROUTER_MODEL_IDENTIFIER,
+      providers: parsedEnv.OPENROUTER_PROVIDER,
     },
     inboxPath: "INBOX",
     reconnectDelayMs: 60_000,

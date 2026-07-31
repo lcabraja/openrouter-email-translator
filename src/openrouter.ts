@@ -50,6 +50,7 @@ export class OpenRouterClient {
   constructor(
     private readonly apiKey: string,
     private readonly model: string,
+    private readonly providers: string[],
     private readonly appTitle: string,
   ) {}
 
@@ -63,6 +64,11 @@ export class OpenRouterClient {
       },
       body: JSON.stringify({
         model: this.model,
+        provider: {
+          order: this.providers,
+          allow_fallbacks: true,
+          sort: "throughput",
+        },
         temperature: 0.1,
         messages: [
           {

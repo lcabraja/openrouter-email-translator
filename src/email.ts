@@ -39,6 +39,7 @@ export class EmailTranslationService {
     this.translator = new OpenRouterClient(
       config.openRouter.apiKey,
       config.openRouter.model,
+      config.openRouter.providers,
       config.appTitle,
     );
     this.transporter = nodemailer.createTransport({
@@ -248,7 +249,10 @@ export class EmailTranslationService {
       );
 
       stage = "translation";
-      console.log(`processing submitted uid=${uid} model=${this.config.openRouter.model}`);
+      console.log(
+        `processing submitted uid=${uid} model=${this.config.openRouter.model} ` +
+          `provider-order=${this.config.openRouter.providers.join(",")} fallback-sort=throughput`,
+      );
       const translationStartedAt = Date.now();
       const translation = await translateParsedMail(parsed, target.language, this.translator);
       console.log(
