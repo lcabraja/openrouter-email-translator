@@ -3,7 +3,12 @@ import { type AddressObject, type Attachment, type HeaderValue, type ParsedMail,
 import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer";
 
 import type { AppConfig } from "./config";
-import { OpenRouterClient, type TranslationUsage } from "./openrouter";
+import {
+  describeTranslationFailure,
+  OpenRouterClient,
+  type TranslationFailure,
+  type TranslationUsage,
+} from "./openrouter";
 import { collectHtmlSegments, prepareHtmlForTranslation, renderTranslatedHtml, textToHtml } from "./translation";
 
 const AUTO_TRANSLATED_HEADER = "x-auto-translated-by";
@@ -254,7 +259,32 @@ export class EmailTranslationService {
           `provider-order=${this.config.openRouter.providers.join(",")} fallback-sort=throughput`,
       );
       const translationStartedAt = Date.now();
-      const translation = await translateParsedMail(parsed, target.language, this.translator);
+      let translation: Awaited<ReturnType<typeof translateParsedMail>>;
+
+      try {
+        translation = await translateParsedMail(parsed, target.language, this.translator);
+      } catch (error) {
+        const failure = describeTranslationFailure(error);
+        console.error(
+          `translation failed uid=${uid} category=${failure.kind} ` +
+            `status=${failure.status ?? "none"} retryable=${yesNo(failure.retryable)}`,
+        );
+
+        stage = "translation-error-reply";
+        await this.sendTranslationFailureReply(parsed, target.language, replyRoute, failure);
+
+        stage = "mark-seen";
+        await withMailboxLock(client, this.config.inboxPath, async () => {
+          await client.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
+        });
+
+        console.log(
+          `translation failure reply sent uid=${uid} to=${replyRoute.recipients.join(", ")} ` +
+            `category=${failure.kind} duration-ms=${Date.now() - startedAt}`,
+        );
+        return true;
+      }
+
       console.log(
         `translation finished uid=${uid} detected=${translation.detectedLanguage} ` +
           `target=${translation.targetLanguage} duration-ms=${Date.now() - translationStartedAt} ` +
@@ -320,6 +350,46 @@ export class EmailTranslationService {
         "X-Translated-To-Language": translation.targetLanguage,
         "X-Original-From": original.from?.text ?? "",
         "X-Original-Subject": original.subject ?? "",
+        "Auto-Submitted": "auto-generated",
+      },
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
+
+  private async sendTranslationFailureReply(
+    original: ParsedMail,
+    targetLanguage: string,
+    replyRoute: ReplyRoute,
+    failure: TranslationFailure,
+  ): Promise<void> {
+    const retryGuidance = failure.retryable
+      ? "Please try sending the email again in a few minutes."
+      : "Please contact the translation service administrator before trying again.";
+    const text = [
+      `Sorry, I could not translate your email into ${targetLanguage}.`,
+      "",
+      `Reason: ${failure.userMessage}`,
+      retryGuidance,
+      "",
+      "This is an automated error notice. Your email content was not included in this reply.",
+    ].join("\n");
+
+    const mailOptions: SendMailOptions = {
+      from: {
+        name: "Translation service",
+        address: this.config.smtp.user,
+      },
+      to: replyRoute.recipients.join(", "),
+      subject: buildThreadSubject(original.subject, null),
+      text,
+      html: textToHtml(text),
+      inReplyTo: original.messageId,
+      references: normalizeReferences(original.references, original.messageId),
+      headers: {
+        [AUTO_TRANSLATED_HEADER]: AUTO_TRANSLATED_MARKER,
+        "X-Translation-Status": "failed",
+        "X-Translation-Error-Category": failure.kind,
         "Auto-Submitted": "auto-generated",
       },
     };

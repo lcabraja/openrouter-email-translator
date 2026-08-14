@@ -29,7 +29,7 @@ bun run start
 - Example: `translate+croatian@example.com`
 - New mail is picked up via IMAP `IDLE` with a short fallback sync loop.
 - Replies are sent to the original `Reply-To`, or `From` if `Reply-To` is missing.
-- Original inbound emails are marked `\Seen` only after a successful translate-and-send flow.
+- Original inbound emails are marked `\Seen` only after a translated reply or sanitized failure notice is sent successfully.
 
 ## Output
 
@@ -42,3 +42,9 @@ The worker logs each processing stage without printing message bodies or credent
 - SMTP submission and final delivery route (`reply-to` or `from`)
 - skipped-message reasons
 - failures with the message UID and failing stage
+
+Translation failures that prevent delivery (for example exhausted OpenRouter credits,
+rate limits, provider outages, or invalid provider responses) produce a sanitized,
+threaded error reply. The provider response body and credentials are never included.
+After the notice is delivered, the original message is marked as handled to prevent
+duplicate error replies.

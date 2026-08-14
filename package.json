@@ -6,6 +6,7 @@
   "scripts": {
     "start": "bun run src/index.ts",
     "once": "bun run src/once.ts",
+    "test": "bun test",
     "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {

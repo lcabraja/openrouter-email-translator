@@ -1,0 +1,9 @@
+.env*
+.git
+.gitignore
+AGENTS.md
+README.md
+coverage
+node_modules
+*.html
+*.log
